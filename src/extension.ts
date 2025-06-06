@@ -1,45 +1,83 @@
+/* --------------------------------------------------------------
+    MCO-CodeFormatter Extension
+    Supports formatting for: JavaScript, TypeScript, JSON, Python, SQF, CFG, CPP
+   -------------------------------------------------------------- */
+
 import * as vscode from 'vscode';
 
-// Include your custom Arma 3 language ID here
-const supportedLanguages = [
-  'javascript',
-  'typescript',
-  'json',
-  'python',
-  'sqf' // custom defined in package.json
+/* ---------------------------
+    Supported Language Identifiers
+   --------------------------- */
+const SUPPORTED_LANGUAGES = [
+    'javascript',
+    'typescript',
+    'json',
+    'python',
+    'sqf',
+    'cfg',
+    'cpp',
 ];
 
-export function activate(context: vscode.ExtensionContext) {
-  const formatter = vscode.languages.registerDocumentFormattingEditProvider(supportedLanguages, {
-    provideDocumentFormattingEdits(document: vscode.TextDocument): vscode.TextEdit[] {
-      const edits: vscode.TextEdit[] = [];
-
-      for (let i = 0; i < document.lineCount; i++) {
-        const line = document.lineAt(i);
-        const original = line.text;
-
-        const formatted = original
-          .trim()
-          .replace(/\s*=\s*/g, ' = ')
-          .replace(/\s*;\s*/g, '; ')
-          .replace(/\s*{\s*/g, ' { ')
-          .replace(/\s*}\s*/g, ' } ')
-          .replace(/ {2,}/g, ' ')
-          .replace(/\s+$/, '');
-
-        if (original !== formatted) {
-          edits.push(vscode.TextEdit.replace(
-            new vscode.Range(i, 0, i, original.length),
-            formatted
-          ));
-        }
-      }
-
-      return edits;
-    }
-  });
-
-  context.subscriptions.push(formatter);
+/* -------------------
+    Format a single line
+   ------------------- */
+function formatLine(lineText: string): string {
+    return lineText.replace(/^(\s*)(.*)$/, (_, indent, code) =>
+        indent +
+        code
+            // Normalize spaces around assignment operator
+            .replace(/\s*=\s*/g, ' = ')
+            // Remove spaces before semicolons, keep one after if needed
+            .replace(/\s*;\s*/g, ';')
+            // Ensure space before opening curly brace
+            .replace(/\s*{\s*/g, ' {')
+            // Remove spaces before closing curly brace
+            .replace(/\s*}\s*/g, '}')
+            // Replace multiple spaces with one
+            .replace(/ {2,}/g, ' ')
+            // Trim trailing whitespace
+            .replace(/[ \t]+$/, '')
+    );
 }
 
-export function deactivate() {}
+/* -------------------
+    Register formatter
+   ------------------- */
+function registerFormatter(languageId: string, context: vscode.ExtensionContext) {
+    const provider = vscode.languages.registerDocumentFormattingEditProvider(languageId, {
+        provideDocumentFormattingEdits(document: vscode.TextDocument): vscode.TextEdit[] {
+            console.log(`📝 Formatting: ${document.fileName} [${document.languageId}]`);
+
+            const edits: vscode.TextEdit[] = [];
+
+            for (let i = 0; i < document.lineCount; i++) {
+                const line = document.lineAt(i);
+                const formatted = formatLine(line.text);
+
+                if (line.text !== formatted) {
+                    edits.push(vscode.TextEdit.replace(line.range, formatted));
+                }
+            }
+
+            return edits;
+        }
+    });
+
+    context.subscriptions.push(provider);
+}
+
+/* ----------------
+    Extension Activation
+   ---------------- */
+export function activate(context: vscode.ExtensionContext) {
+    console.log('✅ MCO-CodeFormatter is now active!');
+
+    for (const language of SUPPORTED_LANGUAGES) {
+        registerFormatter(language, context);
+    }
+}
+
+/* -------------------
+    Extension Deactivation
+   ------------------- */
+export function deactivate() { }
